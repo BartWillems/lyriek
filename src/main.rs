@@ -23,7 +23,7 @@ extern crate relm_derive;
 use std::thread;
 
 use gtk::Orientation::Vertical;
-use gtk::{Inhibit, LabelExt, OrientableExt, SpinnerExt, WidgetExt};
+use gtk::{GtkWindowExt, Inhibit, LabelExt, OrientableExt, SpinnerExt, WidgetExt};
 use relm::{Channel, Relm, Widget};
 use relm_derive::widget;
 
@@ -125,6 +125,11 @@ impl Widget for Win {
                                 }
                                 sender.send(Msg::StopLoading).expect("send message");
                             }
+                            mpris::Event::PlayerShutDown => sender
+                                .send(Msg::Error(
+                                    "player shutdown, lyriek restart is required".to_owned(),
+                                ))
+                                .expect("send message"),
                             _ => {}
                         }
                     }
@@ -149,9 +154,9 @@ impl Widget for Win {
         match event {
             Msg::Quit => gtk::main_quit(),
             Msg::Song(song) => {
-                self.model.text = song.lyrics;
+                self.model.text = format!("<span size=\"large\">{}</span>", escape(&song.lyrics));
                 self.model.header = format!(
-                    "<span size=\"xx-large\">{} - {}</span>",
+                    "<span size=\"xx-large\" weight=\"bold\">{} - {}</span>",
                     escape(&song.artists),
                     escape(&song.title)
                 );
@@ -164,8 +169,10 @@ impl Widget for Win {
 
     view! {
         gtk::Window {
-            // default_size => (350, 350),
+            title: "lyriek",
+            // icon_from_file: &std::path::Path::new("./screenshots/initial-release.png"),
             gtk::Box {
+                // spacing: 30,
                 orientation: Vertical,
                 gtk::Label {
                     markup: &self.model.header,
@@ -175,7 +182,7 @@ impl Widget for Win {
                 },
                 gtk::Label {
                     selectable: true,
-                    text: &self.model.text,
+                    markup: &self.model.text,
                 },
             },
             delete_event(_, _) => (Msg::Quit, Inhibit(false)),
