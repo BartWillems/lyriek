@@ -91,9 +91,8 @@ impl Widget for Window {
                                     }
                                     sender.send(Msg::StopLoading)?;
                                 }
-                                mpris::Event::PlayerShutDown => sender.send(Msg::Error(
-                                    "player shutdown, lyriek restart is required".to_owned(),
-                                ))?,
+                                mpris::Event::PlayerShutDown => sender
+                                    .send(Msg::Error("connection to player lost".to_owned()))?,
                                 _ => {}
                             }
                         }
