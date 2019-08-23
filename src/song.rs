@@ -57,6 +57,11 @@ impl Song {
             hash: metadata.track_id().to_owned(),
         };
 
+        // Sometimes MPRIS gives an empty response
+        if song.artists.is_empty() || song.title.is_empty() {
+            return None;
+        }
+
         match song.get_lyrics() {
             Err(e) => debug!("unable to fetch lyrics: {}", e),
             _ => {}
