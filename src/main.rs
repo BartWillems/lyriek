@@ -1,4 +1,5 @@
 extern crate env_logger;
+extern crate gdk_pixbuf;
 extern crate gtk;
 extern crate mpris;
 extern crate serde;
@@ -12,7 +13,10 @@ extern crate serde_derive;
 extern crate relm;
 #[macro_use]
 extern crate relm_derive;
+#[macro_use]
+extern crate rust_embed;
 
+use gdk_pixbuf::PixbufLoaderExt;
 use gtk::Orientation::Vertical;
 use gtk::{GtkWindowExt, Inhibit, LabelExt, OrientableExt, ScrollableExt, SpinnerExt, WidgetExt};
 use mpris::PlayerFinder;
@@ -22,6 +26,7 @@ use std::error::Error;
 use std::thread;
 use v_htmlescape::escape;
 
+mod assets;
 mod song;
 
 pub struct Model {
@@ -29,6 +34,7 @@ pub struct Model {
     lyrics: String,
     header: String,
     is_loading: bool,
+    logo: Option<gdk_pixbuf::Pixbuf>,
 }
 
 #[derive(Clone, Msg)]
@@ -50,7 +56,7 @@ impl Widget for Window {
         });
 
         thread::spawn(move || loop {
-            let start_loop = || -> Result<(), Box<Error>> {
+            let start_loop = || -> Result<(), Box<dyn Error>> {
                 let player = get_mpris_player().or_else(|e| {
                     trace!("attempting to fetch the player");
                     sender.send(Msg::StopLoading)?;
@@ -59,12 +65,8 @@ impl Widget for Window {
                 })?;
 
                 match song::Song::new().get_playing_song(&player) {
-                    Some(song) => {
-                        sender.send(Msg::Song(song))?;
-                    }
-                    None => {
-                        sender.send(Msg::Error(String::from("song not found")))?;
-                    }
+                    Some(song) => sender.send(Msg::Song(song))?,
+                    None => sender.send(Msg::Error(String::from("song not found")))?,
                 }
                 sender.send(Msg::StopLoading)?;
 
@@ -75,7 +77,7 @@ impl Widget for Window {
                 for event in events {
                     match event {
                         Ok(event) => {
-                            debug!("event: {:#?}", event);
+                            debug!("mpris event: {:#?}", event);
 
                             match event {
                                 mpris::Event::TrackChanged(_) => {
@@ -103,8 +105,7 @@ impl Widget for Window {
                     }
                 }
 
-                info!("connection to player lost");
-                debug!("attempting to reconnect...");
+                debug!("connection to player lost... attempting to reconnect...");
                 Ok(())
             };
 
@@ -115,11 +116,29 @@ impl Widget for Window {
 
             thread::sleep(std::time::Duration::from_secs(1));
         });
+
+        let logo = assets::Asset::get("logo-2.svg")
+            .and_then(|logo| {
+                let pixbuf_loader = gdk_pixbuf::PixbufLoader::new();
+                match pixbuf_loader.write(&logo) {
+                    Ok(_) => Some(pixbuf_loader),
+                    Err(e) => {
+                        error!("unable to write bytes to the PixbufLoader: {}", e);
+                        None
+                    }
+                }
+            })
+            .and_then(|pixbuf_loader| {
+                pixbuf_loader.close().ok();
+                pixbuf_loader.get_pixbuf()
+            });
+
         Model {
             _channel: channel,
             lyrics: "".to_string(),
             header: "".to_string(),
             is_loading: true,
+            logo,
         }
     }
 
@@ -140,7 +159,10 @@ impl Widget for Window {
                     escape(&song.title)
                 );
             }
-            Msg::Error(e) => self.model.lyrics = e,
+            Msg::Error(e) => {
+                self.model.lyrics = e;
+                self.model.header = String::from("");
+            }
             Msg::StopLoading => self.model.is_loading = false,
             Msg::StartLoading => self.model.is_loading = true,
         }
@@ -149,7 +171,7 @@ impl Widget for Window {
     view! {
         gtk::Window {
             title: "lyriek",
-            // icon_from_file: &std::path::Path::new("./screenshots/initial-release.png"),
+            icon: self.model.logo.as_ref(),
             delete_event(_, _) => (Msg::Quit, Inhibit(false)),
             property_width_request: 760,
             property_height_request: 600,

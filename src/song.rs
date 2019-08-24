@@ -17,7 +17,7 @@ struct Track {
     text: String,
 }
 
-#[derive(Clone)]
+#[derive(Default, Clone)]
 pub struct Song {
     pub title: String,
     pub artists: String,
@@ -26,13 +26,8 @@ pub struct Song {
 }
 
 impl Song {
-    pub fn new() -> Song {
-        Song {
-            artists: String::from(""),
-            title: String::from(""),
-            lyrics: None,
-            hash: String::from(""),
-        }
+    pub fn new() -> Self {
+        Song::default()
     }
 
     pub fn get_playing_song<'a>(&self, player: &mpris::Player<'a>) -> Option<Song> {
@@ -62,15 +57,14 @@ impl Song {
             return None;
         }
 
-        match song.get_lyrics() {
-            Err(e) => debug!("unable to fetch lyrics: {}", e),
-            _ => {}
-        };
+        if let Err(e) = song.get_lyrics() {
+            debug!("unable to fetch lyrics: {}", e);
+        }
 
         Some(song)
     }
 
-    fn get_lyrics(&mut self) -> Result<(), Box<Error>> {
+    fn get_lyrics(&mut self) -> Result<(), Box<dyn Error>> {
         use url::Url;
         let mut url = Url::parse("https://orion.apiseeds.com/api/music/lyric")?;
 
