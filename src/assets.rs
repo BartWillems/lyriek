@@ -6,7 +6,7 @@ use crate::gdk_pixbuf::PixbufLoaderExt;
 
 impl Assets {
     pub fn get_logo_pixbuf() -> Option<gdk_pixbuf::Pixbuf> {
-        return Assets::get("logo.svg")
+        Assets::get("logo.svg")
             .and_then(|logo| {
                 let pixbuf_loader = gdk_pixbuf::PixbufLoader::new();
                 match pixbuf_loader.write(&logo) {
@@ -20,7 +20,7 @@ impl Assets {
             .and_then(|pixbuf_loader| {
                 pixbuf_loader.close().ok();
                 pixbuf_loader.get_pixbuf()
-            });
+            })
     }
 }
 
