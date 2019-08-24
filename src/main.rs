@@ -16,7 +16,6 @@ extern crate relm_derive;
 #[macro_use]
 extern crate rust_embed;
 
-use gdk_pixbuf::PixbufLoaderExt;
 use gtk::Orientation::Vertical;
 use gtk::{GtkWindowExt, Inhibit, LabelExt, OrientableExt, ScrollableExt, SpinnerExt, WidgetExt};
 use mpris::PlayerFinder;
@@ -25,6 +24,8 @@ use relm_derive::widget;
 use std::error::Error;
 use std::thread;
 use v_htmlescape::escape;
+
+use assets::Assets;
 
 mod assets;
 mod song;
@@ -117,28 +118,12 @@ impl Widget for Window {
             thread::sleep(std::time::Duration::from_secs(1));
         });
 
-        let logo = assets::Asset::get("logo.svg")
-            .and_then(|logo| {
-                let pixbuf_loader = gdk_pixbuf::PixbufLoader::new();
-                match pixbuf_loader.write(&logo) {
-                    Ok(_) => Some(pixbuf_loader),
-                    Err(e) => {
-                        error!("unable to write bytes to the PixbufLoader: {}", e);
-                        None
-                    }
-                }
-            })
-            .and_then(|pixbuf_loader| {
-                pixbuf_loader.close().ok();
-                pixbuf_loader.get_pixbuf()
-            });
-
         Model {
             _channel: channel,
             lyrics: "".to_string(),
             header: "".to_string(),
             is_loading: true,
-            logo,
+            logo: Assets::get_logo_pixbuf(),
         }
     }
 
