@@ -117,7 +117,7 @@ impl Widget for Window {
             thread::sleep(std::time::Duration::from_secs(1));
         });
 
-        let logo = assets::Asset::get("logo-2.svg")
+        let logo = assets::Asset::get("logo.svg")
             .and_then(|logo| {
                 let pixbuf_loader = gdk_pixbuf::PixbufLoader::new();
                 match pixbuf_loader.write(&logo) {
