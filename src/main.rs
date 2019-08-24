@@ -18,16 +18,15 @@ extern crate rust_embed;
 
 use gtk::Orientation::Vertical;
 use gtk::{GtkWindowExt, Inhibit, LabelExt, OrientableExt, ScrollableExt, SpinnerExt, WidgetExt};
-use mpris::PlayerFinder;
 use relm::{Channel, Relm, Widget};
 use relm_derive::widget;
-use std::error::Error;
 use std::thread;
 use v_htmlescape::escape;
 
 use assets::Assets;
 
 mod assets;
+mod player;
 mod song;
 
 pub struct Model {
@@ -57,63 +56,9 @@ impl Widget for Window {
         });
 
         thread::spawn(move || loop {
-            let start_loop = || -> Result<(), Box<dyn Error>> {
-                let player = get_mpris_player().or_else(|e| {
-                    trace!("attempting to fetch the player");
-                    sender.send(Msg::StopLoading)?;
-                    sender.send(Msg::Error(String::from("no player found")))?;
-                    Err(e)
-                })?;
-
-                match song::Song::new().get_playing_song(&player) {
-                    Some(song) => sender.send(Msg::Song(song))?,
-                    None => sender.send(Msg::Error(String::from("song not found")))?,
-                }
-                sender.send(Msg::StopLoading)?;
-
-                let events = player
-                    .events()
-                    .or_else(|e| Err(format!("unable to start event stream: {}", e)))?;
-
-                for event in events {
-                    match event {
-                        Ok(event) => {
-                            debug!("mpris event: {:#?}", event);
-
-                            match event {
-                                mpris::Event::TrackChanged(_) => {
-                                    sender.send(Msg::StartLoading)?;
-                                    match song::Song::new().get_playing_song(&player) {
-                                        Some(song) => {
-                                            sender.send(Msg::Song(song))?;
-                                        }
-                                        None => {
-                                            sender
-                                                .send(Msg::Error(String::from("song not found")))?;
-                                        }
-                                    }
-                                    sender.send(Msg::StopLoading)?;
-                                }
-                                mpris::Event::PlayerShutDown => sender
-                                    .send(Msg::Error("connection to player lost".to_owned()))?,
-                                _ => {}
-                            }
-                        }
-                        Err(err) => {
-                            sender.send(Msg::Error(format!("D-Bus error: {}", err)))?;
-                            break;
-                        }
-                    }
-                }
-
-                debug!("connection to player lost... attempting to reconnect...");
-                Ok(())
-            };
-
-            let _ = match start_loop() {
-                Err(e) => sender.send(Msg::Error(format!("{}", e))),
-                Ok(()) => Ok(()),
-            };
+            if let Err(e) = player::get_events(&sender) {
+                let _ = sender.send(Msg::Error(format!("{}", e)));
+            }
 
             thread::sleep(std::time::Duration::from_secs(1));
         });
@@ -167,6 +112,7 @@ impl Widget for Window {
                     gtk::Box {
                         property_margin: 15,
                         orientation: Vertical,
+                        vexpand: true,
                         gtk::Label {
                             markup: &self.model.header,
                         },
@@ -182,15 +128,6 @@ impl Widget for Window {
             },
         }
     }
-}
-
-fn get_mpris_player<'a>() -> Result<mpris::Player<'a>, Box<dyn Error>> {
-    let player = PlayerFinder::new()
-        .or_else(|e| Err(format!("Unable to connect to the dbus player: {}", e)))?
-        .find_active()
-        .or_else(|_| Err("no active player found"))?;
-
-    Ok(player)
 }
 
 fn main() {
