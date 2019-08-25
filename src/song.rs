@@ -64,7 +64,7 @@ impl Song {
         Some(song)
     }
 
-    fn get_lyrics(&mut self) -> Result<(), Box<dyn Error>> {
+    fn get_lyrics_api_uri(&self) -> Result<url::Url, Box<dyn Error>> {
         use url::Url;
         let mut url = Url::parse("https://orion.apiseeds.com/api/music/lyric")?;
 
@@ -77,6 +77,12 @@ impl Song {
             "DasGEcpYgIQRlcEEs0reSyuvn9uIcvisOaFW1QiVK7uS3mPpYL7Qb25YmPIVl60r",
         );
 
+        Ok(url)
+    }
+
+    fn get_lyrics(&mut self) -> Result<(), Box<dyn Error>> {
+        let url = &self.get_lyrics_api_uri()?;
+
         debug!("fetching lyrics from {}", url.as_str());
         let resp: ApiResponse = reqwest::get(url.as_str())?.json().or_else(|e| {
             debug!("unable to fetch lyrics: {}", e);
@@ -86,5 +92,24 @@ impl Song {
 
         self.lyrics = Some(resp.result.track.text);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_lyrics_api_path_ordering() {
+        let song: Song = Song {
+            title: String::from("Blackwater Park"),
+            artists: String::from("Opeth"),
+            lyrics: None,
+            hash: String::from(""),
+        };
+
+        let uri = song.get_lyrics_api_uri().unwrap();
+        // This is to make sure the artist & song title aren't switched
+        assert_eq!(uri.path(), "/api/music/lyric/Opeth/Blackwater%20Park");
     }
 }

@@ -32,7 +32,8 @@ mod song;
 pub struct Model {
     _channel: Channel<Msg>,
     lyrics: String,
-    header: String,
+    title: String,
+    artists: String,
     is_loading: bool,
     logo: Option<gdk_pixbuf::Pixbuf>,
 }
@@ -66,7 +67,8 @@ impl Widget for Window {
         Model {
             _channel: channel,
             lyrics: "".to_string(),
-            header: "".to_string(),
+            title: "".to_string(),
+            artists: "".to_string(),
             is_loading: true,
             logo: Assets::get_logo_pixbuf(),
         }
@@ -83,15 +85,17 @@ impl Widget for Window {
                     }
                     None => self.model.lyrics = String::from("lyrics not found :("),
                 };
-                self.model.header = format!(
-                    "<span size=\"xx-large\" weight=\"bold\">{} - {}</span>",
-                    escape(&song.artists),
+                self.model.title = format!(
+                    "<span size=\"xx-large\" weight=\"bold\">{}</span>",
                     escape(&song.title)
                 );
+                self.model.artists =
+                    format!("<span size=\"x-large\">{}</span>", escape(&song.artists));
             }
             Msg::Error(e) => {
                 self.model.lyrics = e;
-                self.model.header = String::from("");
+                self.model.title = String::from("");
+                self.model.artists = String::from("");
             }
             Msg::StopLoading => self.model.is_loading = false,
             Msg::StartLoading => self.model.is_loading = true,
@@ -112,16 +116,25 @@ impl Widget for Window {
                     gtk::Box {
                         property_margin: 15,
                         orientation: Vertical,
-                        vexpand: true,
-                        gtk::Label {
-                            markup: &self.model.header,
+                        gtk::Box {
+                            orientation: Vertical,
+                            gtk::Label {
+                                markup: &self.model.title,
+                            },
+                            gtk::Label {
+                                markup: &self.model.artists,
+                            },
                         },
-                        gtk::Spinner {
-                            property_active: self.model.is_loading,
-                        },
-                        gtk::Label {
-                            selectable: true,
-                            markup: &self.model.lyrics,
+                        gtk::Box {
+                            orientation: Vertical,
+                            vexpand: true,
+                            gtk::Spinner {
+                                property_active: self.model.is_loading,
+                            },
+                            gtk::Label {
+                                selectable: true,
+                                markup: &self.model.lyrics,
+                            },
                         },
                     },
                 },
