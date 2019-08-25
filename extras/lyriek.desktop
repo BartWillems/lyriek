@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Lyriek
+GenericName=Lyriek
+Comment=Automatically fetch lyrics from currently playing music.
+Categories=Music;GTK
+Icon=lyriek
+Exec=lyriek
+Terminal=false
+Type=Application
