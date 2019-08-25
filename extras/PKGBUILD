@@ -1,4 +1,4 @@
-pkgname='lyriek'
+pkgname=lyriek-git
 pkgver=0.1.0
 pkgrel=1
 arch=('x86_64' 'i686')
@@ -6,19 +6,19 @@ url="https://gitlab.com/bartwillems/lyriek"
 license=('GPL3')
 depends=('gtk3')
 makedepends=('rust' 'cargo' 'git' 'desktop-file-utils')
-source=("$pkgname::git+https://gitlab.com/bartwillems/lyriek.git")
+source=("lyriek::git+https://gitlab.com/bartwillems/lyriek.git")
 sha256sums=('SKIP')
 
-# pkgver() {
-# 	echo "$(grep '^version =' Cargo.toml|head -n1|cut -d\" -f2|cut -d\- -f1).$(git rev-list --count HEAD).g$(git rev-parse --short HEAD)"
-# }
+pkgver() {
+	echo "$(grep '^version =' Cargo.toml|head -n1|cut -d\" -f2|cut -d\- -f1).$(git rev-list --count HEAD).g$(git rev-parse --short HEAD)"
+}
 
 build() {
 	cargo build --release
 }
 
 package() {
-	desktop-file-install -m 644 --dir "$srcdir/$pkgname/extra/lyriek.desktop" "$pkgdir/usr/share/applications/"
-	install -D -m755 "$srcdir/$pkgname/target/release/lyriek" "$pkgdir/usr/bin/lyriek"
-	install -D -m755 "$srcdir/$pkgname/assets/logo.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps"
+	desktop-file-install -m 644 --dir "$pkgdir/usr/share/applications/" "extra/lyriek.desktop"
+	install -D -m755 "target/release/lyriek" "$pkgdir/usr/bin/lyriek"
+	install -D -m755 "assets/logo.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps"
 }
