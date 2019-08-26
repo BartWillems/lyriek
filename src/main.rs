@@ -41,7 +41,7 @@ pub struct Model {
 #[derive(Clone, Msg)]
 pub enum Msg {
     Quit,
-    Song(song::Song),
+    Song(Box<song::Song>),
     Error(String),
     StopLoading,
     StartLoading,

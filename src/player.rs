@@ -21,8 +21,11 @@ pub fn get_events(sender: &relm::Sender<Msg>) -> Result<(), Box<dyn Error>> {
         Err(e)
     })?;
 
-    match song::Song::new().get_playing_song(&player) {
-        Some(song) => sender.send(Msg::Song(song))?,
+    trace!("acquired mpris client");
+
+    // The playing song has to be acquired manually as this doesn't receive an event
+    match song::Song::get_playing_song(&player) {
+        Some(song) => sender.send(Msg::Song(Box::new(song)))?,
         None => sender.send(Msg::Error(String::from("song not found")))?,
     }
     sender.send(Msg::StopLoading)?;
@@ -31,17 +34,20 @@ pub fn get_events(sender: &relm::Sender<Msg>) -> Result<(), Box<dyn Error>> {
         .events()
         .or_else(|e| Err(format!("unable to start event stream: {}", e)))?;
 
+    trace!("listening to mpris event stream");
+
     for event in events {
+        trace!("received mpris event");
         match event {
             Ok(event) => {
                 debug!("mpris event: {:#?}", event);
 
                 match event {
-                    mpris::Event::TrackChanged(_) => {
+                    mpris::Event::TrackChanged(metadata) => {
                         sender.send(Msg::StartLoading)?;
-                        match song::Song::new().get_playing_song(&player) {
+                        match song::Song::new_from_metadata(&metadata) {
                             Some(song) => {
-                                sender.send(Msg::Song(song))?;
+                                sender.send(Msg::Song(Box::new(song)))?;
                             }
                             None => {
                                 sender.send(Msg::Error(String::from("song not found")))?;
@@ -50,18 +56,19 @@ pub fn get_events(sender: &relm::Sender<Msg>) -> Result<(), Box<dyn Error>> {
                         sender.send(Msg::StopLoading)?;
                     }
                     mpris::Event::PlayerShutDown => {
+                        debug!("connection to player lost...");
                         sender.send(Msg::Error("connection to player lost".to_owned()))?
                     }
                     _ => {}
                 }
             }
             Err(err) => {
+                error!("D-Bus error {}", err);
                 sender.send(Msg::Error(format!("D-Bus error: {}", err)))?;
                 break;
             }
         }
     }
 
-    debug!("connection to player lost... attempting to reconnect...");
     Ok(())
 }

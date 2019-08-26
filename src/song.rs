@@ -21,8 +21,10 @@ struct Track {
 pub struct Song {
     pub title: String,
     pub artists: String,
+    pub album: Option<String>,
+    pub album_art_url: Option<url::Url>,
+    pub url: Option<url::Url>,
     pub lyrics: Option<String>,
-    pub hash: String,
 }
 
 impl Song {
@@ -30,26 +32,16 @@ impl Song {
         Song::default()
     }
 
-    pub fn get_playing_song<'a>(&self, player: &mpris::Player<'a>) -> Option<Song> {
-        let metadata = player
-            .get_metadata()
-            .or_else(|e| {
-                debug!("unable to fetch the player metadata: {}", e);
-                Err(e)
-            })
-            .ok()?;
-
+    pub fn new_from_metadata(metadata: &mpris::Metadata) -> Option<Self> {
         debug!("mpris metadata {:#?}", metadata);
 
         let mut song = Song {
-            artists: metadata
-                .artists()
-                .ok_or("artist not found")
-                .ok()?
-                .join(", "),
-            title: metadata.title().ok_or("title not found").ok()?.to_owned(),
+            artists: metadata.artists()?.join(", "),
+            title: metadata.title()?.to_owned(),
             lyrics: None,
-            hash: metadata.track_id().to_owned(),
+            album: metadata.album_name().map(|s| s.to_string()),
+            album_art_url: metadata.art_url().and_then(|s| url::Url::parse(s).ok()),
+            url: metadata.url().and_then(|s| url::Url::parse(s).ok()),
         };
 
         // Sometimes MPRIS gives an empty response
@@ -62,6 +54,18 @@ impl Song {
         }
 
         Some(song)
+    }
+
+    pub fn get_playing_song<'a>(player: &mpris::Player<'a>) -> Option<Song> {
+        let metadata = player
+            .get_metadata()
+            .or_else(|e| {
+                debug!("unable to fetch the player metadata: {}", e);
+                Err(e)
+            })
+            .ok()?;
+
+        return Song::new_from_metadata(&metadata);
     }
 
     fn get_lyrics_api_uri(&self) -> Result<url::Url, Box<dyn Error>> {
@@ -105,7 +109,9 @@ mod tests {
             title: String::from("Blackwater Park"),
             artists: String::from("Opeth"),
             lyrics: None,
-            hash: String::from(""),
+            album: None,
+            album_art_url: None,
+            url: None,
         };
 
         let uri = song.get_lyrics_api_uri().unwrap();
