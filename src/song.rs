@@ -1,6 +1,7 @@
 extern crate url;
 
 use std::error::Error;
+use url::Url;
 
 #[derive(Deserialize)]
 struct ApiResponse {
@@ -40,8 +41,8 @@ impl Song {
             title: metadata.title()?.to_owned(),
             lyrics: None,
             album: metadata.album_name().map(|s| s.to_string()),
-            album_art_url: metadata.art_url().and_then(|s| url::Url::parse(s).ok()),
-            url: metadata.url().and_then(|s| url::Url::parse(s).ok()),
+            album_art_url: metadata.art_url().and_then(|s| Url::parse(s).ok()),
+            url: metadata.url().and_then(|s| Url::parse(s).ok()),
         };
 
         // Sometimes MPRIS gives an empty response
@@ -65,11 +66,10 @@ impl Song {
             })
             .ok()?;
 
-        return Song::new_from_metadata(&metadata);
+        Song::new_from_metadata(&metadata)
     }
 
     fn get_lyrics_api_uri(&self) -> Result<url::Url, Box<dyn Error>> {
-        use url::Url;
         let mut url = Url::parse("https://orion.apiseeds.com/api/music/lyric")?;
 
         url.path_segments_mut()
@@ -88,6 +88,7 @@ impl Song {
         let url = &self.get_lyrics_api_uri()?;
 
         debug!("fetching lyrics from {}", url.as_str());
+
         let resp: ApiResponse = reqwest::get(url.as_str())?.json().or_else(|e| {
             debug!("unable to fetch lyrics: {}", e);
             self.lyrics = None;
@@ -117,5 +118,19 @@ mod tests {
         let uri = song.get_lyrics_api_uri().unwrap();
         // This is to make sure the artist & song title aren't switched
         assert_eq!(uri.path(), "/api/music/lyric/Opeth/Blackwater%20Park");
+    }
+
+    #[test]
+    fn test_lyrics_api_url_encoding() {
+        let mut song: Song = Song::new();
+        song.artists = String::from("Slayer");
+        song.title = String::from("Metal Storm / Face the Slayer");
+
+        let uri = song.get_lyrics_api_uri().unwrap();
+
+        assert_eq!(
+            uri.path(),
+            "/api/music/lyric/Slayer/Metal%20Storm%20%2F%20Face%20the%20Slayer"
+        );
     }
 }

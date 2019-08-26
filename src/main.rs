@@ -58,7 +58,10 @@ impl Widget for Window {
 
         thread::spawn(move || loop {
             if let Err(e) = player::get_events(&sender) {
-                let _ = sender.send(Msg::Error(format!("{}", e)));
+                let res = sender.send(Msg::Error(format!("{}", e)));
+                if res.is_err() {
+                    error!("unable to send an error message to the client: {}", e);
+                }
             }
 
             thread::sleep(std::time::Duration::from_secs(1));
