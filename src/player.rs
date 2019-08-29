@@ -38,37 +38,39 @@ pub fn get_events(sender: &relm::Sender<Msg>) -> Result<(), Box<dyn Error>> {
 
     for event in events {
         trace!("received mpris event");
-        match event {
-            Ok(event) => {
-                debug!("mpris event: {:#?}", event);
 
-                match event {
-                    mpris::Event::TrackChanged(metadata) => {
-                        sender.send(Msg::StartLoading)?;
-                        match song::Song::new_from_metadata(&metadata) {
-                            Some(song) => {
-                                sender.send(Msg::Song(Box::new(song)))?;
-                            }
-                            None => {
-                                sender.send(Msg::Error(String::from("song not found")))?;
-                            }
-                        }
-                        sender.send(Msg::StopLoading)?;
+        let event = event.or_else(|err| {
+            error!("D-Bus error {}", err);
+            return Err(format!("D-Bus error {}", err));
+        })?;
+
+        debug!("mpris event: {:#?}", event);
+
+        match event {
+            mpris::Event::TrackChanged(metadata) => {
+                sender.send(Msg::StartLoading)?;
+                match song::Song::new_from_metadata(&metadata) {
+                    Some(song) => {
+                        trace!("found a song");
+                        sender.send(Msg::Song(Box::new(song)))?;
                     }
-                    mpris::Event::PlayerShutDown => {
-                        debug!("connection to player lost...");
-                        sender.send(Msg::Error("connection to player lost".to_owned()))?
+                    None => {
+                        debug!("No song found, metadata: {:#?}", metadata);
+                        sender.send(Msg::Error(String::from("song not found")))?;
                     }
-                    _ => {}
                 }
+                sender.send(Msg::StopLoading)?;
             }
-            Err(err) => {
-                error!("D-Bus error {}", err);
-                sender.send(Msg::Error(format!("D-Bus error: {}", err)))?;
-                break;
+            // When this event arrives, the events iterator also stops and this function returns
+            mpris::Event::PlayerShutDown => {
+                debug!("connection to player lost...");
+                sender.send(Msg::Error("connection to player lost".to_owned()))?
             }
+            _ => {}
         }
     }
+
+    trace!("no longer receiving mpris events");
 
     Ok(())
 }
