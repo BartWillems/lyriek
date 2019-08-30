@@ -1,0 +1,15 @@
+# Changelog
+
+## 0.1.0
+
+### Features
+
+*  GTK-3 UI
+*  Automatically attempt to fetch lyrics for the currently playing song
+*  Automatically reconnect when the connection to the player is lost
+*  Non-blocking UI
+*  No unsafe blocks
+*  Fancy icon
+*  Fairly lightweight
+   *  ~ 10 Mib memory usage
+   *  ~ 4 MB binary size
