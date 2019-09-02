@@ -57,6 +57,7 @@ impl Song {
         Some(song)
     }
 
+    /// Returns the current playing song according to the mpris player
     pub fn get_playing_song<'a>(player: &mpris::Player<'a>) -> Option<Song> {
         let metadata = player
             .get_metadata()
@@ -69,6 +70,8 @@ impl Song {
         Song::new_from_metadata(&metadata)
     }
 
+    /// returns the url::Url to fetch the lyrics for the current song
+    /// returns an error if the url can't be parsed
     fn get_lyrics_api_uri(&self) -> Result<url::Url, Box<dyn Error>> {
         let mut url = Url::parse("https://orion.apiseeds.com/api/music/lyric")?;
 
@@ -84,6 +87,7 @@ impl Song {
         Ok(url)
     }
 
+    /// sets the lyrics for the song
     fn get_lyrics(&mut self) -> Result<(), Box<dyn Error>> {
         let url = &self.get_lyrics_api_uri()?;
 
