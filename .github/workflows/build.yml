@@ -1,0 +1,14 @@
+name: Rust
+
+on: [push]
+
+jobs:
+  test:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
