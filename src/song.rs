@@ -93,7 +93,7 @@ impl Song {
 
         debug!("fetching lyrics from {}", url.as_str());
 
-        let resp: ApiResponse = reqwest::get(url.as_str())?.json().or_else(|e| {
+        let resp: ApiResponse = reqwest::blocking::get(url.as_str())?.json().or_else(|e| {
             debug!("unable to fetch lyrics: {}", e);
             self.lyrics = None;
             Err("lyrics not found")
