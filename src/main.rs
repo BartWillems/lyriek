@@ -1,10 +1,3 @@
-extern crate env_logger;
-extern crate gdk_pixbuf;
-extern crate gtk;
-extern crate mpris;
-extern crate serde;
-extern crate v_htmlescape;
-
 #[macro_use]
 extern crate log;
 #[macro_use]
