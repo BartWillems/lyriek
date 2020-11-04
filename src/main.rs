@@ -24,6 +24,7 @@ use v_htmlescape::escape;
 use assets::Assets;
 
 mod assets;
+mod errors;
 mod player;
 mod song;
 
