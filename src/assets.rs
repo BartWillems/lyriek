@@ -2,7 +2,7 @@
 #[folder = "assets"]
 pub struct Assets;
 
-use crate::gdk_pixbuf::PixbufLoaderExt;
+use gdk_pixbuf::PixbufLoaderExt;
 
 impl Assets {
     pub fn get_logo_pixbuf() -> Option<gdk_pixbuf::Pixbuf> {
@@ -30,6 +30,6 @@ mod tests {
 
     #[test]
     fn test_get_logo() {
-        assert_ne!(Assets::get_logo_pixbuf(), None);
+        assert!(Assets::get_logo_pixbuf().is_some());
     }
 }
