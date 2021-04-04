@@ -90,11 +90,18 @@ impl Song {
 
         debug!("fetching lyrics from {}", url.as_str());
 
-        let resp: ApiResponse = reqwest::blocking::get(url.as_str())?.json().or_else(|e| {
-            debug!("unable to fetch lyrics: {}", e);
-            self.lyrics = Lyrics::NotFound;
-            Err("lyrics not found")
-        })?;
+        let resp: ApiResponse = reqwest::blocking::get(url.as_str())
+            .map_err(|e| {
+                error!("lyrics api error: {}", e);
+                self.lyrics = Lyrics::NotFound;
+                e
+            })?
+            .json()
+            .or_else(|e| {
+                debug!("unable to fetch lyrics: {}", e);
+                self.lyrics = Lyrics::NotFound;
+                Err("lyrics not found")
+            })?;
 
         // For some reason, this lyrics api adds too much new lines
         self.lyrics = Lyrics::Found(resp.lyrics.replace("\n\n", "\n"));
@@ -119,7 +126,7 @@ mod tests {
 
         let uri = song.get_lyrics_api_uri();
         // This is to make sure the artist & song title aren't switched
-        assert_eq!(uri.path(), "/api/music/lyric/Opeth/Blackwater%20Park");
+        assert_eq!(uri.path(), "/v1/Opeth/Blackwater%20Park");
     }
 
     #[test]
@@ -132,7 +139,7 @@ mod tests {
 
         assert_eq!(
             uri.path(),
-            "/api/music/lyric/Slayer/Metal%20Storm%20%2F%20Face%20the%20Slayer"
+            "/v1/Slayer/Metal%20Storm%20%2F%20Face%20the%20Slayer"
         );
     }
 }

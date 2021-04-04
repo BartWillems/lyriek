@@ -5,7 +5,7 @@ use relm_derive::widget;
 use std::thread;
 use v_htmlescape::escape;
 
-use crate::assets::Assets;
+use crate::assets;
 use crate::player;
 use crate::song::Lyrics;
 use crate::Msg;
@@ -54,7 +54,7 @@ impl Widget for Window {
             title: String::new(),
             artists: String::new(),
             is_loading: true,
-            logo: Assets::get_logo_pixbuf(),
+            logo: assets::get_logo_pixbuf(),
         }
     }
 

@@ -11,9 +11,6 @@ extern crate serde_derive;
 #[macro_use]
 extern crate relm_derive;
 
-#[macro_use]
-extern crate rust_embed;
-
 mod assets;
 mod errors;
 mod gui;
