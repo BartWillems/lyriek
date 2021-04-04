@@ -1,21 +1,26 @@
-extern crate url;
-
+use std::convert::TryFrom;
 use std::error::Error;
+
 use url::Url;
+
+use crate::errors::LyriekError;
 
 #[derive(Deserialize)]
 struct ApiResponse {
-    result: ApiResult,
+    lyrics: String,
 }
 
-#[derive(Deserialize)]
-struct ApiResult {
-    track: Track,
+#[derive(Clone, Debug)]
+pub enum Lyrics {
+    Loading,
+    Found(String),
+    NotFound,
 }
 
-#[derive(Deserialize)]
-struct Track {
-    text: String,
+impl Default for Lyrics {
+    fn default() -> Self {
+        Lyrics::Loading
+    }
 }
 
 #[derive(Default, Clone)]
@@ -25,7 +30,30 @@ pub struct Song {
     pub album: Option<String>,
     pub album_art_url: Option<url::Url>,
     pub url: Option<url::Url>,
-    pub lyrics: Option<String>,
+    pub lyrics: Lyrics,
+}
+
+impl TryFrom<&mpris::Metadata> for Song {
+    type Error = LyriekError;
+
+    fn try_from(metadata: &mpris::Metadata) -> Result<Self, Self::Error> {
+        let song = Song {
+            artists: metadata
+                .artists()
+                .ok_or(LyriekError::ArtistNotFound)?
+                .join(", "),
+            title: metadata
+                .title()
+                .ok_or(LyriekError::TitleNotFound)?
+                .to_owned(),
+            lyrics: Lyrics::default(),
+            album: metadata.album_name().map(|s| s.to_string()),
+            album_art_url: metadata.art_url().and_then(|s| Url::parse(s).ok()),
+            url: metadata.url().and_then(|s| Url::parse(s).ok()),
+        };
+
+        Ok(song)
+    }
 }
 
 impl Song {
@@ -33,73 +61,43 @@ impl Song {
         Song::default()
     }
 
-    pub fn new_from_metadata(metadata: &mpris::Metadata) -> Option<Self> {
-        debug!("mpris metadata {:#?}", metadata);
-
-        let mut song = Song {
-            artists: metadata.artists()?.join(", "),
-            title: metadata.title()?.to_owned(),
-            lyrics: None,
-            album: metadata.album_name().map(|s| s.to_string()),
-            album_art_url: metadata.art_url().and_then(|s| Url::parse(s).ok()),
-            url: metadata.url().and_then(|s| Url::parse(s).ok()),
-        };
-
-        // Sometimes MPRIS gives an empty response
-        if song.artists.is_empty() || song.title.is_empty() {
-            return None;
-        }
-
-        if let Err(e) = song.get_lyrics() {
-            debug!("unable to fetch lyrics: {}", e);
-        }
-
-        Some(song)
-    }
-
     /// Returns the current playing song according to the mpris player
-    pub fn get_playing_song<'a>(player: &mpris::Player<'a>) -> Option<Song> {
-        let metadata = player
-            .get_metadata()
-            .or_else(|e| {
-                debug!("unable to fetch the player metadata: {}", e);
-                Err(e)
-            })
-            .ok()?;
+    pub fn get_playing_song<'a>(player: &mpris::Player<'a>) -> Result<Song, LyriekError> {
+        let metadata = player.get_metadata().or_else(|e| {
+            debug!("unable to fetch the player metadata: {}", e);
+            Err(e)
+        })?;
 
-        Song::new_from_metadata(&metadata)
+        Song::try_from(&metadata)
     }
 
     /// returns the url::Url to fetch the lyrics for the current song
     /// returns an error if the url can't be parsed
-    fn get_lyrics_api_uri(&self) -> Result<url::Url, Box<dyn Error>> {
-        let mut url = Url::parse("https://orion.apiseeds.com/api/music/lyric")?;
+    fn get_lyrics_api_uri(&self) -> url::Url {
+        let mut url = Url::parse("https://api.lyrics.ovh/v1").expect("invalid api base url");
 
         url.path_segments_mut()
-            .map_err(|_| "cannot be base")?
+            .expect("url can not be base")
             .push(&self.artists)
             .push(&self.title);
-        url.query_pairs_mut().append_pair(
-            "apikey",
-            "DasGEcpYgIQRlcEEs0reSyuvn9uIcvisOaFW1QiVK7uS3mPpYL7Qb25YmPIVl60r",
-        );
 
-        Ok(url)
+        url
     }
 
     /// sets the lyrics for the song
-    fn get_lyrics(&mut self) -> Result<(), Box<dyn Error>> {
-        let url = &self.get_lyrics_api_uri()?;
+    pub fn get_lyrics(&mut self) -> Result<(), Box<dyn Error>> {
+        let url = &self.get_lyrics_api_uri();
 
         debug!("fetching lyrics from {}", url.as_str());
 
         let resp: ApiResponse = reqwest::blocking::get(url.as_str())?.json().or_else(|e| {
             debug!("unable to fetch lyrics: {}", e);
-            self.lyrics = None;
+            self.lyrics = Lyrics::NotFound;
             Err("lyrics not found")
         })?;
 
-        self.lyrics = Some(resp.result.track.text);
+        // For some reason, this lyrics api adds too much new lines
+        self.lyrics = Lyrics::Found(resp.lyrics.replace("\n\n", "\n"));
         Ok(())
     }
 }
@@ -113,13 +111,13 @@ mod tests {
         let song: Song = Song {
             title: String::from("Blackwater Park"),
             artists: String::from("Opeth"),
-            lyrics: None,
+            lyrics: Lyrics::default(),
             album: None,
             album_art_url: None,
             url: None,
         };
 
-        let uri = song.get_lyrics_api_uri().unwrap();
+        let uri = song.get_lyrics_api_uri();
         // This is to make sure the artist & song title aren't switched
         assert_eq!(uri.path(), "/api/music/lyric/Opeth/Blackwater%20Park");
     }
@@ -130,7 +128,7 @@ mod tests {
         song.artists = String::from("Slayer");
         song.title = String::from("Metal Storm / Face the Slayer");
 
-        let uri = song.get_lyrics_api_uri().unwrap();
+        let uri = song.get_lyrics_api_uri();
 
         assert_eq!(
             uri.path(),

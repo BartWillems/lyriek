@@ -1,3 +1,5 @@
+use std::convert::TryFrom;
+
 use mpris::PlayerFinder;
 
 use crate::errors::LyriekError;
@@ -6,6 +8,8 @@ use crate::Msg;
 
 fn get_mpris_player<'a>() -> Result<mpris::Player<'a>, LyriekError> {
     let players = PlayerFinder::new()?.find_all()?;
+
+    debug!("List of players: {:?}", players);
 
     for player in players {
         info!("Found player: {}", player.bus_name());
@@ -31,9 +35,17 @@ pub fn get_events(sender: &relm::Sender<Msg>) -> Result<(), LyriekError> {
 
     // The playing song has to be acquired manually as this doesn't receive an event
     match song::Song::get_playing_song(&player) {
-        Some(song) => sender.send(Msg::Song(Box::new(song)))?,
-        None => sender.send(Msg::Error(String::from("song not found")))?,
+        Ok(mut song) => {
+            sender.send(Msg::Song(song.clone()))?;
+            if let Ok(()) = song.get_lyrics() {
+                sender.send(Msg::Song(song))?;
+            } else {
+                error!("Got error while fetching lyrics...");
+            }
+        }
+        Err(e) => sender.send(Msg::Error(format!("{}", e)))?,
     }
+
     sender.send(Msg::StopLoading)?;
 
     let events = player.events()?;
@@ -50,14 +62,20 @@ pub fn get_events(sender: &relm::Sender<Msg>) -> Result<(), LyriekError> {
         match event {
             mpris::Event::TrackChanged(metadata) => {
                 sender.send(Msg::StartLoading)?;
-                match song::Song::new_from_metadata(&metadata) {
-                    Some(song) => {
+                match song::Song::try_from(&metadata) {
+                    Ok(mut song) => {
                         trace!("found a song");
-                        sender.send(Msg::Song(Box::new(song)))?;
+                        sender.send(Msg::Song(song.clone()))?;
+
+                        if let Ok(()) = song.get_lyrics() {
+                            sender.send(Msg::Song(song))?;
+                        } else {
+                            error!("Got error while fetching lyrics...");
+                        }
                     }
-                    None => {
+                    Err(e) => {
                         debug!("No song found, metadata: {:#?}", metadata);
-                        sender.send(Msg::Error(String::from("song not found")))?;
+                        sender.send(Msg::Error(format!("{}", e)))?;
                     }
                 }
                 sender.send(Msg::StopLoading)?;

@@ -7,6 +7,10 @@ pub enum LyriekError {
     #[display(fmt = "Player not found")]
     PlayerNotFound,
     Communication(String),
+    #[display(fmt = "Arist(s) not found")]
+    ArtistNotFound,
+    #[display(fmt = "Song title not found")]
+    TitleNotFound,
 }
 
 impl From<mpris::DBusError> for LyriekError {
