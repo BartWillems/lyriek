@@ -19,15 +19,6 @@ pub struct Model {
     logo: Option<gdk_pixbuf::Pixbuf>,
 }
 
-// #[derive(Clone, Msg)]
-// pub enum Msg {
-//     Quit,
-//     Song(Song),
-//     Error(String),
-//     StopLoading,
-//     StartLoading,
-// }
-
 #[widget]
 impl Widget for Window {
     fn model(relm: &Relm<Self>, _: ()) -> Model {

@@ -37,11 +37,10 @@ pub fn get_events(sender: &relm::Sender<Msg>) -> Result<(), LyriekError> {
     match song::Song::get_playing_song(&player) {
         Ok(mut song) => {
             sender.send(Msg::Song(song.clone()))?;
-            if let Ok(()) = song.get_lyrics() {
-                sender.send(Msg::Song(song))?;
-            } else {
-                error!("Got error while fetching lyrics...");
+            if let Err(e) = song.get_lyrics() {
+                error!("Got error while fetching lyrics: {}", e);
             }
+            sender.send(Msg::Song(song))?;
         }
         Err(e) => sender.send(Msg::Error(format!("{}", e)))?,
     }
@@ -67,11 +66,10 @@ pub fn get_events(sender: &relm::Sender<Msg>) -> Result<(), LyriekError> {
                         trace!("found a song");
                         sender.send(Msg::Song(song.clone()))?;
 
-                        if let Ok(()) = song.get_lyrics() {
-                            sender.send(Msg::Song(song))?;
-                        } else {
-                            error!("Got error while fetching lyrics...");
+                        if let Err(e) = song.get_lyrics() {
+                            error!("Got error while fetching lyrics: {}", e);
                         }
+                        sender.send(Msg::Song(song))?;
                     }
                     Err(e) => {
                         debug!("No song found, metadata: {:#?}", metadata);
