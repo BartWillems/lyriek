@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.2.1
+
+### Changes
+
+* Instantly show the current playing song instead of waiting for the lyrics
+
+### Fixes
+
+* Changed the lyrics API (the old one has been down for over a week)
+
+### Internal
+
+* Started work for supporting multiple graphics frontends
+
+
+## 0.2.0
+
+### Features
+
+*  invalid players are now automatically skipped
+
+### Internal
+
+* Updated GTK
+* Implemented a custom error type
+
+
+
 ## 0.1.0
 
 ### Features
